@@ -3,128 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cipher Challenge | GitHub Hosted</title>
+    <title>Cipher Challenge</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        :root {
-            --dark-blue: #0a192f;
-            --neon-blue: #64ffda;
-            --text-slate: #8892b0;
-            --white: #e6f1ff;
-        }
-
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: var(--dark-blue);
-            color: var(--white);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            margin: 0;
-            padding: 40px 20px;
-        }
-
-        .container {
-            max-width: 1000px;
-            width: 100%;
-            text-align: center;
-        }
-
-        header {
-            border-bottom: 1px solid var(--neon-blue);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-        }
-
-        h1 { color: var(--neon-blue); text-transform: uppercase; letter-spacing: 3px; }
+        body { font-family: sans-serif; background: #f0f2f5; text-align: center; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 900px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         
-        #status {
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            color: var(--neon-blue);
-            min-height: 1.5em;
+        #status { font-weight: bold; margin: 20px 0; color: #d35400; }
+
+        /* The Draggable Columns */
+        .column-container { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 20px; 
+            justify-content: center; 
+            min-height: 200px;
         }
 
-        /* Column Interface */
-        .column-container {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            perspective: 1000px;
-            flex-wrap: wrap;
+        .column { 
+            background: #fff; 
+            border: 2px solid #333; 
+            border-radius: 4px; 
+            width: 60px; 
+            padding: 10px; 
+            cursor: grab; 
+            user-select: none;
         }
 
-        .column {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--neon-blue);
-            border-radius: 4px;
-            padding: 15px 10px;
-            min-width: 50px;
-            cursor: grab;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        .column-header { 
+            font-size: 1.5rem; 
+            font-weight: bold; 
+            border-bottom: 2px solid #333; 
+            margin-bottom: 10px; 
+            background: #eee;
         }
 
-        .column:hover {
-            background: rgba(100, 255, 218, 0.1);
-            transform: translateY(-5px);
+        .column-data { 
+            font-family: monospace; 
+            font-size: 1.2rem; 
+            white-space: pre; 
         }
 
-        .column:active { cursor: grabbing; }
-
-        .column-header {
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin-bottom: 15px;
-            padding-bottom: 5px;
-            border-bottom: 2px solid var(--neon-blue);
-        }
-
-        .column-data {
-            font-size: 1.3rem;
-            line-height: 1.5;
-            white-space: pre;
-            color: var(--text-slate);
-        }
-
-        button {
-            background: transparent;
-            color: var(--neon-blue);
-            border: 1px solid var(--neon-blue);
-            padding: 12px 40px;
-            font-family: inherit;
-            font-size: 1.1rem;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: 0.3s;
-            margin-bottom: 20px;
-        }
-
-        button:hover:not(:disabled) {
-            background: var(--neon-blue);
-            color: var(--dark-blue);
-            box-shadow: 0 0 15px var(--neon-blue);
-        }
-
-        button:disabled { border-color: #333; color: #333; cursor: wait; }
-
-        .hidden-data { display: none; }
+        button { padding: 10px 20px; font-size: 1rem; cursor: pointer; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <header>
-        <h1>Intelligence Intercept</h1>
-        <p>REORDER THE DATA STREAMS TO MATCH THE DECRYPTION KEY</p>
-    </header>
-
-    <div id="status">Establishing connection to database...</div>
+    <h1>Column Decryption Game</h1>
+    <div id="status">Loading challenge.txt...</div>
     
-    <button id="startBtn" onclick="generatePuzzle()" disabled>INITIALIZING...</button>
+    <button id="startBtn" onclick="generatePuzzle()" disabled>Start Game</button>
 
-    <div class="hidden-data">
+    <div class="hidden">
         <input type="text" id="keyField">
         <textarea id="textField"></textarea>
     </div>
@@ -136,26 +68,19 @@
     let correctOrder = [];
     let draggedItem = null;
 
-    // Load file from GitHub repo root
+    // Load file from GitHub
     window.addEventListener('DOMContentLoaded', () => {
         fetch('challenge.txt')
-            .then(res => {
-                if (!res.ok) throw new Error("File not found");
-                return res.text();
-            })
+            .then(res => res.text())
             .then(data => {
                 const lines = data.split(/\r?\n/);
-                if (lines.length >= 1) {
-                    document.getElementById('keyField').value = lines[0].trim().toUpperCase();
-                    document.getElementById('textField').value = lines.slice(1).join(" ").trim();
-                    
-                    document.getElementById('status').innerText = "DATA ACQUIRED. AWAITING DECRYPTION.";
-                    document.getElementById('startBtn').innerText = "SCRAMBLE DATA";
-                    document.getElementById('startBtn').disabled = false;
-                }
+                document.getElementById('keyField').value = lines[0].trim().toUpperCase();
+                document.getElementById('textField').value = lines.slice(1).join(" ").trim();
+                document.getElementById('status').innerText = "File loaded! Click Start.";
+                document.getElementById('startBtn').disabled = false;
             })
             .catch(err => {
-                document.getElementById('status').innerText = "FATAL ERROR: challenge.txt missing in repository.";
+                document.getElementById('status').innerText = "Error: Could not find challenge.txt";
             });
     });
 
@@ -168,7 +93,6 @@
         const numCols = key.length;
         let columns = Array.from({ length: numCols }, (_, i) => ({ id: i, char: key[i], data: "" }));
 
-        // Grid distribution
         for (let i = 0; i < text.length; i++) {
             columns[i % numCols].data += text[i] + "\n";
         }
@@ -177,7 +101,7 @@
         const shuffled = [...columns].sort(() => Math.random() - 0.5);
 
         render(shuffled);
-        document.getElementById('status').innerText = "REARRANGE COLUMNS TO REVEAL THE KEY";
+        document.getElementById('status').innerText = "Drag the columns to spell the secret key!";
     }
 
     function render(cols) {
@@ -189,28 +113,42 @@
             div.draggable = true;
             div.dataset.id = col.id;
             div.innerHTML = `<div class="column-header">${col.char}</div><div class="column-data">${col.data}</div>`;
-            div.addEventListener('dragstart', () => { draggedItem = div; div.style.opacity = "0.5"; });
-            div.addEventListener('dragend', () => { div.style.opacity = "1"; });
-            div.addEventListener('dragover', e => e.preventDefault());
-            div.addEventListener('drop', handleDrop);
+            
+            // Core Drag Events
+            div.addEventListener('dragstart', (e) => {
+                draggedItem = div;
+                e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+            });
+
+            div.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Required to allow drop
+            });
+
+            div.addEventListener('drop', function(e) {
+                e.preventDefault();
+                if (this === draggedItem) return;
+
+                const all = Array.from(document.querySelectorAll('.column'));
+                const draggedIdx = all.indexOf(draggedItem);
+                const targetIdx = all.indexOf(this);
+
+                if (draggedIdx < targetIdx) {
+                    this.after(draggedItem);
+                } else {
+                    this.before(draggedItem);
+                }
+                checkWin();
+            });
+
             wrapper.appendChild(div);
         });
-    }
-
-    function handleDrop(e) {
-        if (this === draggedItem) return;
-        const all = Array.from(document.querySelectorAll('.column'));
-        const dIdx = all.indexOf(draggedItem);
-        const tIdx = all.indexOf(this);
-        if (dIdx < tIdx) this.after(draggedItem); else this.before(draggedItem);
-        checkWin();
     }
 
     function checkWin() {
         const current = Array.from(document.querySelectorAll('.column')).map(el => parseInt(el.dataset.id));
         if (JSON.stringify(current) === JSON.stringify(correctOrder)) {
-            document.getElementById('status').innerText = "ACCESS GRANTED. CONFETTI DEPLOYED.";
-            confetti({ particleCount: 250, spread: 100, origin: { y: 0.6 }, colors: ['#64ffda', '#ffffff'] });
+            document.getElementById('status').innerText = "🎉 YOU GOT IT!";
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
         }
     }
 </script>
