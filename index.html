@@ -106,7 +106,7 @@
             div.className = 'column';
             div.draggable = true;
             div.dataset.id = col.id;
-            div.innerHTML = `<div class="column-header">${col.header}</div><div class="column-data">${col.content}</div>`;
+            div.innerHTML = `<div class="column-data">${col.content}</div>`;
             
             div.addEventListener('dragstart', handleDragStart);
             div.addEventListener('dragover', handleDragOver);
