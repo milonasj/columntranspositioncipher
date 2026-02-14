@@ -1,156 +1,123 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cipher Challenge</title>
+    <title>Cipher Solver</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; text-align: center; padding: 20px; }
-        .container { background: white; padding: 20px; border-radius: 8px; max-width: 900px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; text-align: center; background: #fdfdfd; }
+        #status { font-size: 1.2rem; margin: 20px; color: #2c3e50; font-weight: bold; }
         
-        #status { font-weight: bold; margin: 20px 0; color: #d35400; }
-
-        /* The Draggable Columns */
         .column-container { 
             display: flex; 
-            gap: 10px; 
-            margin-top: 20px; 
+            gap: 5px; 
             justify-content: center; 
-            min-height: 200px;
+            margin-top: 20px;
+            padding: 10px;
         }
 
         .column { 
             background: #fff; 
-            border: 2px solid #333; 
-            border-radius: 4px; 
-            width: 60px; 
+            border: 3px solid #000; 
             padding: 10px; 
-            cursor: grab; 
+            cursor: move; 
+            min-width: 40px;
             user-select: none;
+            touch-action: none; /* Helps with mobile dragging */
         }
 
-        .column-header { 
-            font-size: 1.5rem; 
-            font-weight: bold; 
-            border-bottom: 2px solid #333; 
-            margin-bottom: 10px; 
-            background: #eee;
+        /* This makes it obvious which column you are moving */
+        .column.dragging {
+            opacity: 0.4;
+            border: 3px dashed #666;
         }
 
-        .column-data { 
-            font-family: monospace; 
-            font-size: 1.2rem; 
-            white-space: pre; 
-        }
-
-        button { padding: 10px 20px; font-size: 1rem; cursor: pointer; }
-        .hidden { display: none; }
+        .column-header { font-size: 24px; font-weight: bold; border-bottom: 2px solid #000; margin-bottom: 10px; }
+        .column-data { font-family: monospace; font-size: 18px; white-space: pre; }
+        button { padding: 10px 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Column Decryption Game</h1>
-    <div id="status">Loading challenge.txt...</div>
-    
-    <button id="startBtn" onclick="generatePuzzle()" disabled>Start Game</button>
+    <h1>Cipher Decoder</h1>
+    <div id="status">Loading...</div>
+    <button id="startBtn" onclick="generate()" disabled>Start Game</button>
 
-    <div class="hidden">
-        <input type="text" id="keyField">
-        <textarea id="textField"></textarea>
-    </div>
+    <div id="wrapper" class="column-container"></div>
 
-    <div id="columnWrapper" class="column-container"></div>
-</div>
+    <script>
+        let correctOrder = [];
+        let key = "";
+        let message = "";
 
-<script>
-    let correctOrder = [];
-    let draggedItem = null;
-
-    // Load file from GitHub
-    window.addEventListener('DOMContentLoaded', () => {
+        // 1. Fetch data from YOUR challenge.txt
         fetch('challenge.txt')
-            .then(res => res.text())
+            .then(r => r.text())
             .then(data => {
                 const lines = data.split(/\r?\n/);
-                document.getElementById('keyField').value = lines[0].trim().toUpperCase();
-                document.getElementById('textField').value = lines.slice(1).join(" ").trim();
-                document.getElementById('status').innerText = "File loaded! Click Start.";
+                key = lines[0].trim().toUpperCase();
+                message = lines.slice(1).join("").replace(/\s+/g, "").toUpperCase();
+                document.getElementById('status').innerText = "File loaded! Ready.";
                 document.getElementById('startBtn').disabled = false;
             })
-            .catch(err => {
-                document.getElementById('status').innerText = "Error: Could not find challenge.txt";
+            .catch(() => {
+                document.getElementById('status').innerText = "Error: Make sure challenge.txt is in the same folder!";
             });
-    });
 
-    function generatePuzzle() {
-        const key = document.getElementById('keyField').value.replace(/[^A-Z]/g, '');
-        let text = document.getElementById('textField').value.replace(/\s+/g, '').toUpperCase();
-        const wrapper = document.getElementById('columnWrapper');
-
-        wrapper.innerHTML = '';
-        const numCols = key.length;
-        let columns = Array.from({ length: numCols }, (_, i) => ({ id: i, char: key[i], data: "" }));
-
-        for (let i = 0; i < text.length; i++) {
-            columns[i % numCols].data += text[i] + "\n";
-        }
-
-        correctOrder = columns.map(c => c.id);
-        const shuffled = [...columns].sort(() => Math.random() - 0.5);
-
-        render(shuffled);
-        document.getElementById('status').innerText = "Drag the columns to spell the secret key!";
-    }
-
-    function render(cols) {
-        const wrapper = document.getElementById('columnWrapper');
-        wrapper.innerHTML = '';
-        cols.forEach(col => {
-            const div = document.createElement('div');
-            div.className = 'column';
-            div.draggable = true;
-            div.dataset.id = col.id;
-            div.innerHTML = `<div class="column-header">${col.char}</div><div class="column-data">${col.data}</div>`;
+        function generate() {
+            const wrapper = document.getElementById('wrapper');
+            wrapper.innerHTML = '';
             
-            // Core Drag Events
-            div.addEventListener('dragstart', (e) => {
-                draggedItem = div;
-                e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+            let columns = Array.from({ length: key.length }, (_, i) => ({
+                id: i,
+                header: key[i],
+                content: ""
+            }));
+
+            // Distribute text
+            for (let i = 0; i < message.length; i++) {
+                columns[i % key.length].content += message[i] + "\n";
+            }
+
+            correctOrder = columns.map(c => c.id);
+            const shuffled = [...columns].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(col => {
+                const div = document.createElement('div');
+                div.className = 'column';
+                div.draggable = true;
+                div.dataset.id = col.id;
+                div.innerHTML = `<div class="column-header">${col.header}</div><div class="column-data">${col.content}</div>`;
+                
+                // DRAG EVENTS
+                div.addEventListener('dragstart', () => div.classList.add('dragging'));
+                div.addEventListener('dragend', () => div.classList.remove('dragging'));
+                
+                wrapper.appendChild(div);
             });
 
-            div.addEventListener('dragover', (e) => {
-                e.preventDefault(); // Required to allow drop
-            });
-
-            div.addEventListener('drop', function(e) {
-                e.preventDefault();
-                if (this === draggedItem) return;
-
-                const all = Array.from(document.querySelectorAll('.column'));
-                const draggedIdx = all.indexOf(draggedItem);
-                const targetIdx = all.indexOf(this);
-
-                if (draggedIdx < targetIdx) {
-                    this.after(draggedItem);
-                } else {
-                    this.before(draggedItem);
-                }
-                checkWin();
-            });
-
-            wrapper.appendChild(div);
-        });
-    }
-
-    function checkWin() {
-        const current = Array.from(document.querySelectorAll('.column')).map(el => parseInt(el.dataset.id));
-        if (JSON.stringify(current) === JSON.stringify(correctOrder)) {
-            document.getElementById('status').innerText = "🎉 YOU GOT IT!";
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            document.getElementById('status').innerText = "Reorder the columns!";
         }
-    }
-</script>
+
+        // 2. The Logic to Swap Columns
+        document.getElementById('wrapper').addEventListener('dragover', e => {
+            e.preventDefault();
+            const draggingItem = document.querySelector('.dragging');
+            const siblings = [...document.querySelectorAll('.column:not(.dragging)')];
+            
+            let nextSibling = siblings.find(sibling => {
+                return e.clientX <= sibling.offsetLeft + sibling.offsetWidth / 2;
+            });
+            
+            document.getElementById('wrapper').insertBefore(draggingItem, nextSibling);
+        });
+
+        document.getElementById('wrapper').addEventListener('drop', () => {
+            const currentOrder = [...document.querySelectorAll('.column')].map(c => parseInt(c.dataset.id));
+            if (JSON.stringify(currentOrder) === JSON.stringify(correctOrder)) {
+                document.getElementById('status').innerText = "🎉 CORRECT!";
+                confetti({ particleCount: 150, spread: 70 });
+            }
+        });
+    </script>
 </body>
 </html>
