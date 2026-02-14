@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Column Transposition Cipher Challenge</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --bg: #f4f7f6;
+            --text: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 20px; color: var(--primary); }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+
+        .file-section {
+            background: #f9f9f9;
+            border: 2px dashed #ccc;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #357abd; }
+
+        /* The Game Board */
+        .column-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            min-height: 150px;
+        }
+
+        .column {
+            background: #fff;
+            border: 2px solid #333;
+            border-radius: 6px;
+            min-width: 60px;
+            padding: 10px;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            user-select: none;
+        }
+
+        .column:active { cursor: grabbing; transform: scale(1.05); }
+
+        .column-header {
+            font-weight: bold;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #333;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            color: var(--primary);
+        }
+
+        .column-data {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.2rem;
+            line-height: 1.4;
+            white-space: pre;
+        }
+
+        .hint {
+            margin-top: 15px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cipher Column Shuffle</h1>
+
+    <div class="file-section">
+        <label for="fileInput">Step 1: Upload a Message (.txt)</label>
+        <input type="file" id="fileInput" accept=".txt">
+    </div>
+
+    <div class="input-group">
+        <label for="keyInput">Step 2: Enter Key Word</label>
+        <input type="text" id="keyInput" placeholder="e.g. SECRET">
+    </div>
+
+    <div class="input-group">
+        <label for="textInput">Message Content (Autofills from file)</label>
+        <textarea id="textInput" rows="4" placeholder="Your message will appear here after upload..."></textarea>
+    </div>
+
+    <button onclick="generatePuzzle()">Generate Shuffle</button>
+
+    <div class="hint" id="gameStatus">Arrange the columns to spell the key!</div>
+
+    <div id="columnWrapper" class="column-container"></div>
+</div>
+
+<script>
+    let correctOrder = [];
+    let draggedItem = null;
+
+    // --- File Handling ---
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            document.getElementById('textInput').value = event.target.result;
+        };
+        reader.readAsText(file);
+    });
+
+    // --- Core Logic ---
+    function generatePuzzle() {
+        const key = document.getElementById('keyInput').value.toUpperCase().replace(/[^A-Z]/g, '');
+        let text = document.getElementById('textInput').value.replace(/\s+/g, '').toUpperCase();
+        const wrapper = document.getElementById('columnWrapper');
+
+        if (!key || !text) {
+            alert("Please provide both a key and a message (via file or typing).");
+            return;
+        }
+
+        wrapper.innerHTML = '';
+        const numCols = key.length;
+        
+        // 1. Organize text into columns
+        let columns = Array.from({ length: numCols }, (_, i) => ({
+            id: i,
+            header: key[i],
+            content: ""
+        }));
+
+        for (let i = 0; i < text.length; i++) {
+            columns[i % numCols].content += text[i] + "\n";
+        }
+
+        // 2. Store correct order and shuffle
+        correctOrder = columns.map(c => c.id);
+        const shuffled = [...columns].sort(() => Math.random() - 0.5);
+
+        // 3. Render to screen
+        render(shuffled);
+        document.getElementById('gameStatus').innerText = "Drag the columns to reorder them!";
+    }
+
+    function render(cols) {
+        const wrapper = document.getElementById('columnWrapper');
+        wrapper.innerHTML = '';
+        
+        cols.forEach((col) => {
+            const div = document.createElement('div');
+            div.className = 'column';
+            div.draggable = true;
+            div.dataset.id = col.id;
+            
+            div.innerHTML = `
+                <div class="column-header">${col.header}</div>
+                <div class="column-data">${col.content}</div>
+            `;
+            
+            // Drag and Drop Listeners
+            div.addEventListener('dragstart', handleDragStart);
+            div.addEventListener('dragover', handleDragOver);
+            div.addEventListener('drop', handleDrop);
+            
+            wrapper.appendChild(div);
+        });
+    }
+
+    // --- Drag & Drop Mechanics ---
+    function handleDragStart(e) {
+        draggedItem = this;
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        if (this === draggedItem) return;
+
+        const allCols = Array.from(document.querySelectorAll('.column'));
+        const draggedIdx = allCols.indexOf(draggedItem);
+        const targetIdx = allCols.indexOf(this);
+
+        if (draggedIdx < targetIdx) {
+            this.after(draggedItem);
+        } else {
+            this.before(draggedItem);
+        }
+        
+        checkWin();
+    }
+
+    function checkWin() {
+        const currentOrder = Array.from(document.querySelectorAll('.column'))
+                                  .map(el => parseInt(el.dataset.id));
+        
+        if (JSON.stringify(currentOrder) === JSON.stringify(correctOrder)) {
+            document.getElementById('gameStatus').innerText = "🎉 Correct! You decoded it!";
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#4a90e2', '#ffffff', '#f4a62a']
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
